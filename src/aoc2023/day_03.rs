@@ -35,6 +35,14 @@ pub fn part_one() -> Result<()> {
         println!("{line:#?}");
         });
 
+    let items = input
+        .lines()
+        .enumerate()
+        .filter_map( |(y, line)| take_line(line, 0, y).ok())
+        .collect::<Vec<_>>();
+
+    println!("{items:#?}");
+
     Ok(())
 }
 
@@ -57,7 +65,12 @@ fn skip_empty(s: &str) -> IResult<&str, usize> {
 fn take_line(s: &str, x: usize, y: usize) -> Result<Vec<Item>> {
     let item = |s| Item::parse(s, x, y);
     let (_, mut line) = many1(item)(s).map_err(|_| anyhow!("depth limit"))?;
-
+    let mut mut_windows = line.iter_mut().peekable();
+    while let Some(item) = mut_windows.next() {
+        if let Some(next_item) = mut_windows.peek_mut() {
+            **next_item += item.to_owned();
+        };
+    };
     Ok(line)
 }
 
@@ -135,7 +148,8 @@ impl Add for Item {
 }
 impl AddAssign for Item {
     fn add_assign(&mut self, rhs: Self) {
-        self.clone().add(rhs);
+        let new = self.clone() + rhs;
+        self.clone_from(&new);
     }
 }
 
@@ -154,7 +168,7 @@ impl Part {
             pair(skip_empty, anychar),
             |(head_space, item)| {
                 let size = Range2D::new(
-                    [x, x + head_space],
+                    [x + head_space, x + head_space ],
                     [y, y]
                     );
                 Self{size, item}
@@ -190,7 +204,8 @@ impl Add<Label> for Part {
 }
 impl AddAssign<Label> for Part {
     fn add_assign(&mut self, rhs: Label) {
-        self.clone().add(rhs);
+        let new = self.clone() + rhs;
+        self.clone_from(&new);
     }
 }
 
@@ -208,7 +223,8 @@ impl Label {
             pair(skip_empty, u32),
             |(head_space, item)| {
                 let size = Range2D::new(
-                    [x, x + head_space + item.to_string().len()],
+                    [ x + head_space
+                    , x + head_space + item.to_string().len() - 1 ],
                     [y, y]
                     );
                 Self{size, item}
@@ -244,7 +260,8 @@ impl Add<Part> for Label {
 }
 impl AddAssign<Part> for Label {
     fn add_assign(&mut self, rhs: Part) {
-        self.clone().add(rhs);
+        let new = self.clone() + rhs;
+        self.clone_from(&new);
     }
 }
 
@@ -284,15 +301,16 @@ impl Add for Range2D {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
         let x = RangeInclusive::new(
-            self.x.start() + rhs.x.end() ,
-            self.x.end()   + rhs.x.end() );
+            self.x.start() + rhs.x.end() + 1,
+            self.x.end()   + rhs.x.end() + 1 );
         let y = self.y;
         Self{x, y}
     }
 }
 impl AddAssign for Range2D {
     fn add_assign(&mut self, rhs: Self) {
-        self.clone().add(rhs);
+        let new = self.clone() + rhs;
+        self.clone_from(&new);
     }
 }
 impl PartialEq for Range2D {
