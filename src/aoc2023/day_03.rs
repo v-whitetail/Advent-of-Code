@@ -57,6 +57,7 @@ fn skip_empty(s: &str) -> IResult<&str, usize> {
 fn take_line(s: &str, x: usize, y: usize) -> Result<Vec<Item>> {
     let item = |s| Item::parse(s, x, y);
     let (_, mut line) = many1(item)(s).map_err(|_| anyhow!("depth limit"))?;
+
     Ok(line)
 }
 
