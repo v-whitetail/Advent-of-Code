@@ -64,13 +64,12 @@ fn skip_empty(s: &str) -> IResult<&str, usize> {
 }
 fn take_line(s: &str, x: usize, y: usize) -> Result<Vec<Item>> {
     let item = |s| Item::parse(s, x, y);
-    let (_, mut line) = many1(item)(s).map_err(|_| anyhow!("depth limit"))?;
-    let mut mut_windows = line.iter_mut().peekable();
-    while let Some(item) = mut_windows.next() {
-        if let Some(next_item) = mut_windows.peek_mut() {
-            **next_item += item.to_owned();
-        };
-    };
+    let (_, mut line) = fold_many1 (
+        item, Vec::new,
+        |mut acc: Vec<_>, item| {
+            acc.push(item);
+            acc
+        })(s).map_err(|_| anyhow!("depth limit"))?;
     Ok(line)
 }
 
@@ -169,7 +168,7 @@ impl Part {
             |(head_space, item)| {
                 let size = Range2D::new(
                     [x + head_space, x + head_space ],
-                    [y, y]
+                    [ y.saturating_sub(1), y + 1]
                     );
                 Self{size, item}
             }
@@ -225,7 +224,7 @@ impl Label {
                 let size = Range2D::new(
                     [ x + head_space
                     , x + head_space + item.to_string().len() - 1 ],
-                    [y, y]
+                    [ y.saturating_sub(1), y + 1]
                     );
                 Self{size, item}
             }
