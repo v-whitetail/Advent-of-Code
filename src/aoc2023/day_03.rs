@@ -1,13 +1,17 @@
 use anyhow::{ Result, anyhow, };
-use std::ops::Range;
 use itertools::{
     Itertools,
     Either::Left as Left,
-    Either::Right as Right, iproduct,
+    Either::Right as Right,
 };
 use std::{
-    fs::read_to_string,
-    collections::HashSet,
+    fs::*,
+    ops::*,
+    collections::*,
+    borrow::BorrowMut,
+    cmp::Ordering::Less as Less,
+    cmp::Ordering::Equal as Equal,
+    cmp::Ordering::Greater as Greater,
 };
 use nom::{
     IResult,
@@ -31,31 +35,6 @@ pub fn part_one() -> Result<()> {
         println!("{line:#?}");
         });
 
-    let parts = input
-        .lines()
-        .enumerate()
-        .filter_map( |(y, line)| take_line(line, 0, y).ok() )
-        .flatten()
-        .filter_map( |item| item.as_part() );
-    let labels = input
-        .lines()
-        .enumerate()
-        .filter_map( |(y, line)| take_line(line, 0, y).ok() )
-        .flatten()
-        .filter_map( |item| item.as_label() );
-    let ans: u32 = labels
-        .filter( |label|
-                 parts
-                 .clone()
-                 .filter( |part| judge_2d(part, label) )
-                 .next()
-                 .is_some()
-               )
-        .map( |label| label.item )
-        .sum();
-
-    println!("{ans:#?}");
-
     Ok(())
 }
 
@@ -77,34 +56,14 @@ fn skip_empty(s: &str) -> IResult<&str, usize> {
 }
 fn take_line(s: &str, x: usize, y: usize) -> Result<Vec<Item>> {
     let item = |s| Item::parse(s, x, y);
-    let (_, mut line) = many1(item)(s)
-        .map_err(|err| anyhow!("recursion error:\n{err:#?}"))?;
-    let mut iter = line.iter_mut().peekable();
-    while let Some(item) = iter.next() {
-        if let Some(next) = iter.peek_mut() {
-            next.offset(item);
-        };
-    };
+    let (_, mut line) = many1(item)(s).map_err(|_| anyhow!("depth limit"))?;
     Ok(line)
 }
-fn judge_x(part: &Part, label: &Label) -> bool{
-    let mut x_bound = label.x.clone();
-    x_bound.start = x_bound.start.saturating_sub(1);
-    x_bound.end += 2;
-    x_bound.contains(&part.x)
-}
-fn judge_y(part: &Part, label: &Label) -> bool{
-    let y_bound = Range{start: label.y.saturating_sub(1), end: label.y+2};
-    y_bound.contains(&part.y)
-}
-fn judge_2d(part: &Part, label: &Label) -> bool{
-    judge_x(part, label) && judge_y(part, label)
-}
 
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 enum Item {
     Label(Label),
     Part(Part),
@@ -135,25 +94,47 @@ impl Item {
             Self::Label(_) => None,
         }
     }
-    fn offset(&mut self, prev: &mut Self) {
-        use Item::Label as L;
-        use Item::Part as P;
-        match (prev, self) {
-            (P(prev), P(next)) => {
-                next.x += prev.x + 1;
-            },
-            (P(prev), L(next)) => {
-                next.x.start += prev.x + 1;
-                next.x.end += prev.x + 1;
-            },
-            (L(prev), P(next)) => {
-                next.x += prev.x.end;
-            },
-            (L(prev), L(next)) => {
-                next.x.start += prev.x.end + 1;
-                next.x.end += prev.x.end + 1;
-            },
-        };
+    fn as_mut_label(&mut self) -> Option<&mut Label> {
+        match self {
+            Self::Part(_) => None,
+            Self::Label(label) => Some(label),
+        }
+    }
+    fn as_mut_part(&mut self) -> Option<&mut Part> {
+        match self {
+            Self::Part(part) => Some(part),
+            Self::Label(_) => None,
+        }
+    }
+    fn is_part(self) -> bool {
+        match self {
+            Self::Part(_) => true,
+            Self::Label(_) => false,
+        }
+    }
+    fn is_label(self) -> bool {
+        match self {
+            Self::Part(_) => false,
+            Self::Label(_) => true,
+        }
+    }
+}
+impl Add for Item {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        use Item::Part as Part;
+        use Item::Label as Label;
+        match (self, rhs) {
+            (  Part(lhs),  Part(rhs) ) =>  Part( lhs + rhs ),
+            (  Part(lhs), Label(rhs) ) =>  Part( lhs + rhs ),
+            ( Label(lhs), Label(rhs) ) => Label( lhs + rhs ),
+            ( Label(lhs),  Part(rhs) ) => Label( lhs + rhs ),
+        }
+    }
+}
+impl AddAssign for Item {
+    fn add_assign(&mut self, rhs: Self) {
+        self.clone().add(rhs);
     }
 }
 
@@ -161,49 +142,179 @@ impl Item {
 
 
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Hash)]
 struct Part {
-    x: usize,
-    y: usize,
-    item: char
+    item: char,
+    size: Range2D,
 }
 impl Part {
     fn parse(s: &str, x: usize, y: usize) -> IResult<&str, Self> {
         map(
             pair(skip_empty, anychar),
-            |(head_space, item)|
-            {
-                let x = x + head_space;
-                let y = y.clone();
-                Self{x, y, item}
+            |(head_space, item)| {
+                let size = Range2D::new(
+                    [x, x + head_space],
+                    [y, y]
+                    );
+                Self{size, item}
             }
            )(s)
+    }
+}
+impl PartialOrd for Part {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.size.partial_cmp(&other.size)
+    }
+}
+impl Add for Part {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let size = self.size + rhs.size;
+        let item = self.item;
+        Self{item, size}
+    }
+}
+impl AddAssign for Part {
+    fn add_assign(&mut self, rhs: Self) {
+        self.clone().add(rhs);
+    }
+}
+impl Add<Label> for Part {
+    type Output = Self;
+    fn add(self, rhs: Label) -> Self::Output {
+        let size = self.size + rhs.size;
+        let item = self.item;
+        Self{item, size}
+    }
+}
+impl AddAssign<Label> for Part {
+    fn add_assign(&mut self, rhs: Label) {
+        self.clone().add(rhs);
     }
 }
 
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Hash)]
 struct Label {
-    x: Range<usize>,
-    y: usize,
     item: u32,
+    size: Range2D,
 }
 impl Label {
     fn parse(s: &str, x: usize, y: usize) -> IResult<&str, Self> {
         map(
             pair(skip_empty, u32),
-            |(head_space, item)|
-            {
-                let x = Range{
-                    start: x + head_space,
-                    end: x + head_space + item.to_string().len() - 1,
-                };
-                let y = y.clone();
-                Self{x, y, item}
+            |(head_space, item)| {
+                let size = Range2D::new(
+                    [x, x + head_space + item.to_string().len()],
+                    [y, y]
+                    );
+                Self{size, item}
             }
            )(s)
     }
 }
+impl PartialOrd for Label {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.size.partial_cmp(&other.size)
+    }
+}
+impl Add for Label {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let size = self.size + rhs.size;
+        let item = self.item;
+        Self{item, size}
+    }
+}
+impl AddAssign for Label {
+    fn add_assign(&mut self, rhs: Self) {
+        self.clone().add(rhs);
+    }
+}
+impl Add<Part> for Label {
+    type Output = Self;
+    fn add(self, rhs: Part) -> Self::Output {
+        let size = self.size + rhs.size;
+        let item = self.item;
+        Self{item, size}
+    }
+}
+impl AddAssign<Part> for Label {
+    fn add_assign(&mut self, rhs: Part) {
+        self.clone().add(rhs);
+    }
+}
 
+
+
+
+#[derive(Debug, Clone, Eq, Hash)]
+struct Range2D {
+    x: RangeInclusive<usize>,
+    y: RangeInclusive<usize>,
+}
+impl Range2D {
+    fn new(x: [usize;2], y: [usize;2]) -> Self{
+        let x = RangeInclusive::new(x[0], x[1]);
+        let y = RangeInclusive::new(y[0], y[1]);
+        Self{x, y}
+    }
+    fn partial_include(&self, other: &Self) -> bool {
+        let x_contains =
+            self.x.contains(other.x.start())
+            || self.x.contains(other.x.start());
+        let y_contains =
+            self.y.contains(other.y.start())
+            || self.y.contains(other.y.end());
+        let is_x_contained =
+            other.x.contains(self.x.start())
+            || other.x.contains(self.x.start());
+        let is_y_contained =
+            other.y.contains(self.y.start())
+            || other.y.contains(self.y.end());
+        let x_overlap = x_contains || is_x_contained;
+        let y_overlap = y_contains || is_y_contained;
+        x_overlap && y_overlap
+    }
+}
+impl Add for Range2D {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let x = RangeInclusive::new(
+            self.x.start() + rhs.x.end() ,
+            self.x.end()   + rhs.x.end() );
+        let y = self.y;
+        Self{x, y}
+    }
+}
+impl AddAssign for Range2D {
+    fn add_assign(&mut self, rhs: Self) {
+        self.clone().add(rhs);
+    }
+}
+impl PartialEq for Range2D {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_include(other)
+    }
+}
+impl PartialOrd for Range2D {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (
+            self.x.start().partial_cmp(other.x.start()),
+            self.y.start().partial_cmp(other.y.start()),
+            ) {
+            ( _, Some(Greater)) => Some(Greater),
+            ( _,    Some(Less)) => Some(Less),
+            (Some(Greater) ,_ ) => Some(Greater),
+            (Some(Less)    ,_ ) => Some(Less),
+            _ => None
+        }
+    }
+}
+impl Ord for Range2D {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(Less)
+    }
+}
