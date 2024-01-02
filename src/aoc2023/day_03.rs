@@ -45,7 +45,7 @@ pub fn part_one() -> Result<()> {
 
 
     let mut orphaned_labels = labels.clone();
-    for _ in (1..=4).into_iter() {
+    for _ in (0..16).into_iter() {
         parts.iter()
             .for_each(|item| {
                 orphaned_labels.remove(item);
