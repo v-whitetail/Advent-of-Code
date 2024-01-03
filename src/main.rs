@@ -1,5 +1,4 @@
 #![allow(unused, dead_code)]
-#![feature(iter_partition_in_place)]
 
 use advent_of_code::aoc2023::*;
 use anyhow::Result;
