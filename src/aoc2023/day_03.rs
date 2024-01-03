@@ -2,6 +2,7 @@
 
 use anyhow::{ Result, anyhow, };
 use std::fs::*;
+use itertools::any;
 use std::collections::*;
 use nom::{
     IResult,
@@ -21,7 +22,29 @@ pub fn part_one() -> Result<()> {
 
     let input = read_to_string("src/aoc2023/input/day_03.log")?;
 
-    let mut queue = Note::parse(&input)?;
+    let mut parts = Note::parse(&input)?;
+
+    let labels = parts.split_off(
+        parts.partition_point(
+            |note| {
+                if let Label::Part(_) = note.label { true }
+                else { false }
+            })
+        );
+
+    let ans = labels
+        .iter()
+        .filter(|label|
+                any( parts.iter(),
+                |part| part.overlap_bounds(label))
+               )
+        .filter_map( |note|
+                     if let Label::Numb(numb) = note.label { Some(numb) }
+                     else { None }
+                   )
+        .sum::<u32>();
+
+    println!("{ans:#?}");
 
     Ok(())
 
