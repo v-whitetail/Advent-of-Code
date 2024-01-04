@@ -22,7 +22,7 @@ pub fn part_one() -> Result<()> {
 
     let input = read_to_string("src/aoc2023/input/day_03.log")?;
 
-    let mut parts = Note::parse(&input)?;
+    let mut parts = Note::parse_part_one(&input)?;
 
     let labels = parts.split_off(
         parts.partition_point(
@@ -56,6 +56,34 @@ pub fn part_one() -> Result<()> {
 
 pub fn part_two() -> Result<()> {
 
+    let input = read_to_string("src/aoc2023/input/day_03.log")?;
+
+    let [parts, numbs] = Note::parse_part_two(&input)?;
+
+    let ans = parts
+        .iter()
+        .enumerate()
+        .filter_map( | (i, part) |
+                     {
+                         let prx_numbs = &numbs[..];
+                         let collissions = prx_numbs
+                             .iter()
+                             .filter( |numb| numb.overlap_bounds(part) )
+                             .collect::<Vec<_>>();
+                         if collissions.len() == 2 {
+                             return Some( [ collissions[0], collissions[1] ])
+                         } else { return None }
+                     }
+                   )
+        .filter_map( |[lhs, rhs]| {
+            if let [Label::Numb(lhv), Label::Numb(rhv)] = [lhs.label, rhs.label]{
+                Some(lhv*rhv)
+            } else { None }
+        }).sum::<u32>();
+
+    println!("{ans:#?}");
+
+
     Ok(())
 
 }
@@ -70,13 +98,23 @@ enum Label {
     Part(char),
 }
 impl Label {
-    fn parse(s: &str) -> IResult<&str, (usize, Option<Self>)> {
+    fn parse_part_one(s: &str) -> IResult<&str, (usize, Option<Self>)> {
         pair(
             many0_count(tag(".")),
             alt((
                     map( line_ending, |_| None ),
                     map( u32, |numb| Some(Self::Numb(numb)) ),
                     map( anychar, |part| Some(Self::Part(part)) ),
+                ))
+            )(s)
+    }
+    fn parse_part_two(s: &str) -> IResult<&str, (usize, Option<Self>)> {
+        pair(
+            many0_count(tag(".")),
+            alt((
+                    map( line_ending, |_| None ),
+                    map( u32, |numb| Some(Self::Numb(numb)) ),
+                    map( tag("*"), |part| Some(Self::Part('*')) ),
                 ))
             )(s)
     }
@@ -183,10 +221,10 @@ impl Note {
               && self.bounds[2] <= other.bounds[3] );
         x_overlap && y_overlap
     }
-    fn parse(s: &str) -> Result<VecDeque<Self>> {
+    fn parse_part_one(s: &str) -> Result<VecDeque<Self>> {
         let mut queue = VecDeque::new();
         fold_many0(
-            Label::parse, move || (0, None),
+            Label::parse_part_one, move || (0, None),
             |(mut y, mut prev): (usize, Option<Self>), (mut x, label)| {
                 if label.is_none() {
                     return (y + 1, None);
@@ -203,5 +241,27 @@ impl Note {
             })(s)
         .map_err( |err| anyhow!("impl Note::parse(s)\n{:#?}", err) )?;
         Ok(queue)
+    }
+    fn parse_part_two(s: &str) -> Result<[Vec<Self>;2]> {
+        let mut parts = Vec::new();
+        let mut numbs = Vec::new();
+        fold_many0(
+            Label::parse_part_one, move || (0, None),
+            |(mut y, mut prev): (usize, Option<Self>), (mut x, label)| {
+                if label.is_none() {
+                    return (y + 1, None);
+                };
+                if let Some(note) = prev {
+                    x += note.origin[0] + note.label.width();
+                };
+                let note = Self::new(label.unwrap(), [ x , y ]);
+                match note.label {
+                    Label::Numb(_) => numbs.push(note),
+                    Label::Part(_) => parts.push(note),
+                };
+                return (y, Some(note));
+            })(s)
+        .map_err( |err| anyhow!("impl Note::parse(s)\n{:#?}", err) )?;
+        Ok([parts, numbs])
     }
 }
