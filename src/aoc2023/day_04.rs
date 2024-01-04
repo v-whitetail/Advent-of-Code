@@ -1,15 +1,9 @@
-use anyhow::Result;
-use std::fs::read_to_string;
-use nom::{
-    IResult, Parser,
-    branch::alt,
-    combinator::map,
-    bytes::complete::tag,
-    multi::separated_list1,
-    character::complete::{ u8, space1 },
-    sequence::{ delimited, pair, preceded, },
-};
+#![feature(extend_one)]
 
+use std::collections::*;
+use std::fs::read_to_string;
+use itertools::Itertools;
+use anyhow::{ Result, anyhow, };
 
 
 
@@ -17,10 +11,83 @@ use nom::{
 /// part one ///
 pub fn part_one() -> Result<()> {
 
-    let input = read_to_string("src/aoc2023/input/day_04.log")?;
+    let input = read_to_string("src/aoc2023/input/day_04.nu")?;
+
+//    let input = TEST_INPUT.to_owned();
+
+    let ans = Buffer::parse_one(&input);
+
+    println!("{ans:#?}");
 
     Ok(())
 
+}
+
+
+
+
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Buffer{
+    idx: usize,
+    lhs: [u8; 10],
+    rhs: [u8; 26],
+}
+impl Buffer{
+    fn parse_one(s: &str) -> u128 {
+        let mut score = 0u128;
+        let mut buffer = Self::default();
+        for line in s.lines() {
+            buffer.parse_line(line);
+            score += buffer.count_hits();
+        }
+        score
+    }
+    fn parse_line(&mut self, line: &str) {
+        let mut split_line = line.split(&[':', '|']);
+        self.idx = split_line
+            .next()
+            .unwrap()
+            .trim_start_matches("Card")
+            .trim()
+            .parse::<usize>()
+            .unwrap();
+        split_line
+            .next()
+            .unwrap()
+            .trim()
+            .split(' ')
+            .filter( |&entry| entry!="" )
+            .fold( 0, |i: usize, entry| {
+                self.lhs[i] = entry.parse::<u8>().unwrap();
+                i + 1
+            });
+        split_line
+            .next()
+            .unwrap()
+            .trim()
+            .split(' ')
+            .filter( |&entry| entry!="" )
+            .fold( 0, |i: usize, entry| {
+                self.rhs[i] = entry.parse::<u8>().unwrap();
+                i + 1
+            });
+    }
+    fn count_hits(&self) -> u128 {
+        let mut hits = 0;
+        for lhs in self.lhs.iter().filter(|&&v| 0 < v ) {
+            for rhs in self.rhs.iter().filter(|&&v| 0 < v ) {
+                if lhs == rhs {
+                    if hits == 0 {
+                        hits += 1;
+                    } else {
+                        hits <<= 1;
+                    }
+                }
+            }
+        }
+        hits as u128
+    }
 }
 
 
@@ -44,8 +111,14 @@ pub fn part_two() -> Result<()> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn show_me() {
     }
 }
+
+const TEST_INPUT: &str = 
+r#"Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11"#;
