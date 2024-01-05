@@ -5,6 +5,6 @@ use advent_of_code::aoc2023::*;
 use anyhow::Result;
 
 fn main() -> Result<()>{
-    day_04::part_one()?;
+    day_04::part_two()?;
     Ok(())
 }

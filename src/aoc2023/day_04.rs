@@ -95,7 +95,7 @@ impl Buffer{
             .unwrap()
             .trim()
             .split(' ')
-            .filter( |&entry| entry!="" )
+            .filter( |&entry| !entry.is_empty() )
             .fold( 0, |i: usize, entry| {
                 self.lhs[i] = entry.parse::<u8>().unwrap();
                 i + 1
