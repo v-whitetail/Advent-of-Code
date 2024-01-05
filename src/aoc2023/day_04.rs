@@ -1,5 +1,6 @@
 #![feature(extend_one)]
 
+use std::borrow::*;
 use std::collections::*;
 use std::fs::read_to_string;
 use itertools::Itertools;
@@ -13,14 +14,33 @@ pub fn part_one() -> Result<()> {
 
     let input = read_to_string("src/aoc2023/input/day_04.nu")?;
 
-//    let input = TEST_INPUT.to_owned();
-
     let ans = Buffer::parse_one(&input);
 
     println!("{ans:#?}");
 
     Ok(())
 
+}
+#[test]
+fn test_part_one() {
+    assert_eq!(13, Buffer::parse_one(TEST_INPUT));
+}
+
+
+
+
+
+/// part two ///
+pub fn part_two() -> Result<()> {
+
+    let input = read_to_string("src/aoc2023/input/day_04.nu")?;
+
+    Ok(())
+
+}
+#[test]
+fn test_part_two() {
+    assert_eq!(30, Buffer::parse_two(TEST_INPUT));
 }
 
 
@@ -35,13 +55,29 @@ struct Buffer{
 }
 impl Buffer{
     fn parse_one(s: &str) -> u128 {
-        let mut score = 0u128;
+        let mut score = 0;
         let mut buffer = Self::default();
         for line in s.lines() {
             buffer.parse_line(line);
-            score += buffer.count_hits();
+            score += buffer.count_hits_one();
         }
         score
+    }
+    fn parse_two(s: &str) -> u128 {
+        let mut buffer = Self::default();
+        let mut record = [0; 256];
+        let mut sum = 0;
+        for line in s.lines() {
+            buffer.parse_line(line);
+            record[buffer.idx - 1] += 1;
+            let c = record[buffer.idx - 1];
+            (&mut record[
+             buffer.idx .. buffer.idx + buffer.count_hits_two()
+            ]).iter_mut()
+                .for_each(|entry| {*entry += c;} );
+            sum += record[buffer.idx - 1];
+        }
+        sum
     }
     fn parse_line(&mut self, line: &str) {
         let mut split_line = line.split(&[':', '|']);
@@ -73,7 +109,7 @@ impl Buffer{
                 i + 1
             });
     }
-    fn count_hits(&self) -> u128 {
+    fn count_hits_one(&self) -> u128 {
         let mut hits = 0;
         for lhs in self.lhs.iter().filter(|&&v| 0 < v ) {
             for rhs in self.rhs.iter().filter(|&&v| 0 < v ) {
@@ -86,34 +122,24 @@ impl Buffer{
                 }
             }
         }
-        hits as u128
+        hits
+    }
+    fn count_hits_two(&self) -> usize {
+        let mut hits = 0;
+        for lhs in self.lhs.iter().filter(|&&v| 0 < v ) {
+            for rhs in self.rhs.iter().filter(|&&v| 0 < v ) {
+                if lhs == rhs {
+                    hits += 1;
+                }
+            }
+        }
+        hits as usize
     }
 }
 
 
 
 
-
-/// part two ///
-pub fn part_two() -> Result<()> {
-
-    let input = read_to_string("src/aoc2023/input/day_04.log")?;
-
-    Ok(())
-
-}
-
-
-
-
-
-/// tests ///
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn show_me() {
-    }
-}
 
 const TEST_INPUT: &str = 
 r#"Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
