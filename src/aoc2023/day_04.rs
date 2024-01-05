@@ -35,6 +35,10 @@ pub fn part_two() -> Result<()> {
 
     let input = read_to_string("src/aoc2023/input/day_04.nu")?;
 
+    let ans = Buffer::parse_two(&input);
+
+    println!("{ans:#?}");
+
     Ok(())
 
 }
@@ -65,17 +69,15 @@ impl Buffer{
     }
     fn parse_two(s: &str) -> u128 {
         let mut buffer = Self::default();
-        let mut record = [0; 256];
+        let mut record = [1; 256];
         let mut sum = 0;
         for line in s.lines() {
             buffer.parse_line(line);
-            record[buffer.idx - 1] += 1;
-            let c = record[buffer.idx - 1];
-            (&mut record[
-             buffer.idx .. buffer.idx + buffer.count_hits_two()
-            ]).iter_mut()
+            sum  += record[buffer.idx];
+            let c = record[buffer.idx];
+            record[ buffer.idx + 1 ..= buffer.idx + buffer.count_hits_two() ]
+                .iter_mut()
                 .for_each(|entry| {*entry += c;} );
-            sum += record[buffer.idx - 1];
         }
         sum
     }
