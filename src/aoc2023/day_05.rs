@@ -20,6 +20,25 @@ pub fn part_one() -> Result<()> {
     println!("hello, day 05 part 1");
 
     let input = read_to_string("src/aoc2023/input/day_05.nu")?;
+    let input = TEST_INPUT.to_owned();
+
+    let mut map = BTreeSet::<MapItem>::new();
+    map.insert(MapItem::default());
+
+    let seeds = input
+        .lines()
+        .filter_map( |line| Line::parse(line).ok() )
+        .find_map( |(_, line)| line.as_seeds() )
+        .expect("seeds parsing");
+    input
+        .lines()
+        .filter_map( |line| Line::parse(line).ok() )
+        .filter_map( |(_, line)| line.as_map_table() )
+        .for_each( |map_item| {
+            map_item.insert_item(&mut map)
+        });
+    
+    println!("{map:#?}");
 
     Ok(())
 
@@ -78,7 +97,20 @@ impl std::cmp::PartialEq<u64> for MapItem {
     }
 }
 impl MapItem {
-    fn separate(&self, other: &Self) -> [Option<Self>; 3] {
+    fn insert_item(self, map: &mut BTreeSet<Self>) {
+        if let Some(item) = map.get(&self) {
+            let splits = item.split(&self);
+            let len = splits.iter().filter(|split|split.is_some()).count();
+            if 1 < len {
+                splits
+                    .into_iter()
+                    .filter_map( |split| split )
+                    .for_each( |split| split.insert_item(map) )
+                    ;
+            }
+        }
+    }
+    fn split(&self, other: &Self) -> [Option<Self>; 3] {
         use std::cmp::Ordering::{Less as L, Equal as E, Greater as G};
         let [smin, smax, omin, omax] = [
             self.range[0], self.range[1],
@@ -86,49 +118,50 @@ impl MapItem {
         ];
         match ( smin.cmp(&omin), smax.cmp(&omax)) {
             (L,L) => [
-                Some(Self::new(smin, omin, self.coeff as u64)),
-                Some(Self::new(omin, smax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(smax, omax, other.coeff as u64)),
+                Some(Self::new([smin, omin], self.coeff)),
+                Some(Self::new([omin, smax], self.coeff + other.coeff)),
+                Some(Self::new([smax, omax], other.coeff)),
             ],
             (L,E) => [
-                Some(Self::new(smin, omin, self.coeff as u64)),
-                Some(Self::new(omin, smax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new([smin, omin], self.coeff)),
+                Some(Self::new([omin, smax], self.coeff + other.coeff)),
                 None,
             ],
             (L,G) => [
-                Some(Self::new(smin, omin, self.coeff as u64)),
-                Some(Self::new(omin, omax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(omax, smax, other.coeff as u64)),
+                Some(Self::new([smin, omin], self.coeff)),
+                Some(Self::new([omin, omax], self.coeff + other.coeff)),
+                Some(Self::new([omax, smax], other.coeff)),
             ],
             (E,L) => [
-                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(smax, omax, other.coeff as u64)),
+                Some(Self::new([smin, smax], self.coeff + other.coeff)),
+                Some(Self::new([smax, omax], other.coeff)),
                 None,
             ],
-            (E,E) => [
-                Some(Self::new(smin, omax, (self.coeff + other.coeff) as u64)),
-                None,
-                None,
-            ],
+            (E,E) => panic!("equal, equal"),
+//            (E,E) => [
+//                Some(Self::new([smin, omax], self.coeff + other.coeff)),
+//                None,
+//                None,
+//            ],
             (E,G) => [
-                Some(Self::new(omin, omax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(omax, smax, self.coeff as u64)),
+                Some(Self::new([omin, omax], self.coeff + other.coeff)),
+                Some(Self::new([omax, smax], self.coeff)),
                 None,
             ],
             (G,L) => [
-                Some(Self::new(omin, smin, other.coeff as u64)),
-                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(smax, omax, other.coeff as u64)),
+                Some(Self::new([omin, smin], other.coeff)),
+                Some(Self::new([smin, smax], self.coeff + other.coeff)),
+                Some(Self::new([smax, omax], other.coeff)),
             ],
             (G,E) => [
-                Some(Self::new(omin, smin, other.coeff as u64)),
-                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new([omin, smin], other.coeff)),
+                Some(Self::new([smin, smax], self.coeff + other.coeff)),
                 None,
             ],
             (G,G) => [
-                Some(Self::new(omin, smin, other.coeff as u64)),
-                Some(Self::new(smin, omax, (self.coeff + other.coeff) as u64)),
-                Some(Self::new(omax, smax, self.coeff as u64)),
+                Some(Self::new([omin, smin], other.coeff)),
+                Some(Self::new([smin, omax], self.coeff + other.coeff)),
+                Some(Self::new([omax, smax], self.coeff)),
             ],
         }
     }
@@ -138,9 +171,12 @@ impl MapItem {
             || other == &self.range[0]
             || other == &self.range[1]
     }
-    fn new(target: u64, source: u64, width: u64) -> Self {
+    fn from_input(target: u64, source: u64, width: u64) -> Self {
         let range = [source, source + width];
         let coeff = target as i64 - source as i64;
+        Self{range, coeff}
+    }
+    fn new(range: [u64; 2], coeff: i64) -> Self {
         Self{range, coeff}
     }
     fn default() -> Self {
@@ -161,12 +197,24 @@ enum Line<'a>{
     MapTable(MapItem),
 }
 impl<'a> Line<'a> {
+    fn as_seeds(self) -> Option<Vec<u64>> {
+        if let Self::Seeds(seeds) = self { Some(seeds) }
+        else { None }
+    }
+    fn as_map_label(self) -> Option<&'a str> {
+        if let Self::MapLabel(map_label) = self { Some(map_label) }
+        else { None }
+    }
+    fn as_map_table(self) -> Option<MapItem> {
+        if let Self::MapTable(map_label) = self { Some(map_label) }
+        else { None }
+    }
     fn parse(s:&'a str) -> IResult<&str, Self> {
         alt(( Self::seeds, Self::map_label, Self::map_table, ))(s)
     }
     fn seeds(s:&'a str) -> IResult<&str, Self> {
         map(
-            preceded( tag("seeds: "), many1(preceded(space1, u64)) ),
+            preceded( tag("seeds:"), many1(preceded(space1, u64)) ),
             |vec| Self::Seeds(vec)
            )(s)
     }
@@ -184,7 +232,45 @@ impl<'a> Line<'a> {
                     preceded(space1, u64)
                   )),
                   |(source, target, width)|
-                  Self::MapTable(MapItem::new(source, target, width))
+                  Self::MapTable(MapItem::from_input(source, target, width))
            )(s)
     }
 }
+
+
+
+
+const TEST_INPUT: &str = r#"
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4"#;
