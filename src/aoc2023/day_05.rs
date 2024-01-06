@@ -78,9 +78,59 @@ impl std::cmp::PartialEq<u64> for MapItem {
     }
 }
 impl MapItem {
-    fn separate(&self, other: &Self) -> [Self; 3] {
-        if self != other {panic!("attempted to separate without overlap")};
-        todo!()
+    fn separate(&self, other: &Self) -> [Option<Self>; 3] {
+        use std::cmp::Ordering::{Less as L, Equal as E, Greater as G};
+        let [smin, smax, omin, omax] = [
+            self.range[0], self.range[1],
+            other.range[0], other.range[1]
+        ];
+        match ( smin.cmp(&omin), smax.cmp(&omax)) {
+            (L,L) => [
+                Some(Self::new(smin, omin, self.coeff as u64)),
+                Some(Self::new(omin, smax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(smax, omax, other.coeff as u64)),
+            ],
+            (L,E) => [
+                Some(Self::new(smin, omin, self.coeff as u64)),
+                Some(Self::new(omin, smax, (self.coeff + other.coeff) as u64)),
+                None,
+            ],
+            (L,G) => [
+                Some(Self::new(smin, omin, self.coeff as u64)),
+                Some(Self::new(omin, omax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(omax, smax, other.coeff as u64)),
+            ],
+            (E,L) => [
+                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(smax, omax, other.coeff as u64)),
+                None,
+            ],
+            (E,E) => [
+                Some(Self::new(smin, omax, (self.coeff + other.coeff) as u64)),
+                None,
+                None,
+            ],
+            (E,G) => [
+                Some(Self::new(omin, omax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(omax, smax, self.coeff as u64)),
+                None,
+            ],
+            (G,L) => [
+                Some(Self::new(omin, smin, other.coeff as u64)),
+                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(smax, omax, other.coeff as u64)),
+            ],
+            (G,E) => [
+                Some(Self::new(omin, smin, other.coeff as u64)),
+                Some(Self::new(smin, smax, (self.coeff + other.coeff) as u64)),
+                None,
+            ],
+            (G,G) => [
+                Some(Self::new(omin, smin, other.coeff as u64)),
+                Some(Self::new(smin, omax, (self.coeff + other.coeff) as u64)),
+                Some(Self::new(omax, smax, self.coeff as u64)),
+            ],
+        }
     }
     fn is_overlapping(&self, other: &Self) -> bool {
         self == &other.range[0]
@@ -91,6 +141,11 @@ impl MapItem {
     fn new(target: u64, source: u64, width: u64) -> Self {
         let range = [source, source + width];
         let coeff = target as i64 - source as i64;
+        Self{range, coeff}
+    }
+    fn default() -> Self {
+        let range = [u64::MIN, u64::MAX];
+        let coeff = 0;
         Self{range, coeff}
     }
 }
