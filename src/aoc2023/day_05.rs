@@ -1,7 +1,8 @@
+use crate::aoc2023::Input;
 use anyhow::{ Result, anyhow, };
 use std::fs::*;
-use itertools::any;
 use std::collections::*;
+use itertools::Itertools;
 use nom::{
     IResult,
     multi::*,
@@ -17,28 +18,28 @@ use nom::{
 
 pub fn part_one() -> Result<()> {
 
-    println!("hello, day 05 part 1");
+    Input::new(file!()).read();
 
-    let input = read_to_string("src/aoc2023/input/day_05.nu")?;
-    let input = TEST_INPUT.to_owned();
-
-    let mut map = BTreeSet::<MapItem>::new();
-    map.insert(MapItem::default());
-
-    let seeds = input
-        .lines()
-        .filter_map( |line| Line::parse(line).ok() )
-        .find_map( |(_, line)| line.as_seeds() )
-        .expect("seeds parsing");
-    input
-        .lines()
-        .filter_map( |line| Line::parse(line).ok() )
-        .filter_map( |(_, line)| line.as_map_table() )
-        .for_each( |map_item| {
-            map_item.insert_item(&mut map)
-        });
-    
-    println!("{map:#?}");
+//    let input = read_to_string("src/aoc2023/input/day_05.nu")?;
+//    let input = TEST_INPUT.to_owned();
+//
+//    let mut map = BTreeSet::<MapItem>::new();
+//    map.insert(MapItem::default());
+//
+//    let seeds = input
+//        .lines()
+//        .filter_map( |line| Line::parse(line).ok() )
+//        .find_map( |(_, line)| line.as_seeds() )
+//        .expect("seeds parsing");
+//    input
+//        .lines()
+//        .filter_map( |line| Line::parse(line).ok() )
+//        .filter_map( |(_, line)| line.as_map_table() )
+//        .for_each( |map_item| {
+//            map_item.insert_item(&mut map)
+//        });
+//    
+//    println!("{map:?}");
 
     Ok(())
 
@@ -57,7 +58,7 @@ pub fn part_two() -> Result<()> {
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct MapItem {
     range: [u64; 2],
     coeff: i64,
@@ -98,72 +99,24 @@ impl std::cmp::PartialEq<u64> for MapItem {
 }
 impl MapItem {
     fn insert_item(self, map: &mut BTreeSet<Self>) {
-        if let Some(item) = map.get(&self) {
-            let splits = item.split(&self);
-            let len = splits.iter().filter(|split|split.is_some()).count();
-            if 1 < len {
-                splits
-                    .into_iter()
-                    .filter_map( |split| split )
-                    .for_each( |split| split.insert_item(map) )
-                    ;
-            }
-        }
+        todo!()
     }
-    fn split(&self, other: &Self) -> [Option<Self>; 3] {
-        use std::cmp::Ordering::{Less as L, Equal as E, Greater as G};
-        let [smin, smax, omin, omax] = [
+    fn split(&self, other: &Self) -> Vec<Self> {
+        [ 
             self.range[0], self.range[1],
-            other.range[0], other.range[1]
-        ];
-        match ( smin.cmp(&omin), smax.cmp(&omax)) {
-            (L,L) => [
-                Some(Self::new([smin, omin], self.coeff)),
-                Some(Self::new([omin, smax], self.coeff + other.coeff)),
-                Some(Self::new([smax, omax], other.coeff)),
-            ],
-            (L,E) => [
-                Some(Self::new([smin, omin], self.coeff)),
-                Some(Self::new([omin, smax], self.coeff + other.coeff)),
-                None,
-            ],
-            (L,G) => [
-                Some(Self::new([smin, omin], self.coeff)),
-                Some(Self::new([omin, omax], self.coeff + other.coeff)),
-                Some(Self::new([omax, smax], other.coeff)),
-            ],
-            (E,L) => [
-                Some(Self::new([smin, smax], self.coeff + other.coeff)),
-                Some(Self::new([smax, omax], other.coeff)),
-                None,
-            ],
-            (E,E) => panic!("equal, equal"),
-//            (E,E) => [
-//                Some(Self::new([smin, omax], self.coeff + other.coeff)),
-//                None,
-//                None,
-//            ],
-            (E,G) => [
-                Some(Self::new([omin, omax], self.coeff + other.coeff)),
-                Some(Self::new([omax, smax], self.coeff)),
-                None,
-            ],
-            (G,L) => [
-                Some(Self::new([omin, smin], other.coeff)),
-                Some(Self::new([smin, smax], self.coeff + other.coeff)),
-                Some(Self::new([smax, omax], other.coeff)),
-            ],
-            (G,E) => [
-                Some(Self::new([omin, smin], other.coeff)),
-                Some(Self::new([smin, smax], self.coeff + other.coeff)),
-                None,
-            ],
-            (G,G) => [
-                Some(Self::new([omin, smin], other.coeff)),
-                Some(Self::new([smin, omax], self.coeff + other.coeff)),
-                Some(Self::new([omax, smax], self.coeff)),
-            ],
-        }
+            other.range[0], other.range[1],
+        ]
+            .into_iter()
+            .sorted()
+            .dedup()
+            .map_windows(
+                |&[lhs, rhs]|
+                Self::new(
+                    [lhs, rhs],
+                    self.eq(&lhs).then_some(self.coeff).unwrap_or(0)
+                    + other.eq(&lhs).then_some(other.coeff).unwrap_or(0)
+                    ))
+            .collect()
     }
     fn is_overlapping(&self, other: &Self) -> bool {
         self == &other.range[0]
