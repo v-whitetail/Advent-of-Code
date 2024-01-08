@@ -16,12 +16,19 @@ use nom::{
 
 
 
-pub fn part_one() -> Result<()> {
+
+pub const DAY_5: &str = file!();
+
+
+
+
+
+pub fn part_one(input: Input) -> Result<u32> {
 
     Input::new(file!()).read();
 
-//    let input = read_to_string("src/aoc2023/input/day_05.nu")?;
-//    let input = TEST_INPUT.to_owned();
+    let input = read_to_string("src/aoc2023/input/day_05.nu")?;
+    let input = TEST_INPUT.to_owned();
 //
 //    let mut map = BTreeSet::<MapItem>::new();
 //    map.insert(MapItem::default());
@@ -41,8 +48,12 @@ pub fn part_one() -> Result<()> {
 //    
 //    println!("{map:?}");
 
-    Ok(())
+    Ok(0)
 
+}
+#[test]
+fn test_part_one() {
+    assert_eq!(35, part_one(Input::new(DAY_5).test()).unwrap());
 }
 pub fn part_two() -> Result<()> {
 

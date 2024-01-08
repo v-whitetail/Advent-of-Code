@@ -4,6 +4,8 @@ pub mod day_03;
 pub mod day_04;
 pub mod day_05;
 
+
+#[derive(Debug, Clone, Copy)]
 pub enum Input {
     Real(u8),
     Test(u8),

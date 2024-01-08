@@ -21,10 +21,10 @@ pub fn part_one() -> Result<()> {
     Ok(())
 
 }
-//#[test]
-//fn test_part_one() {
-//    assert_eq!(13, Buffer::parse_one(TEST_INPUT));
-//}
+#[test]
+fn test_part_one() {
+    assert_eq!(13, Buffer::parse_one(TEST_INPUT));
+}
 
 
 
@@ -42,10 +42,10 @@ pub fn part_two() -> Result<()> {
     Ok(())
 
 }
-//#[test]
-//fn test_part_two() {
-//    assert_eq!(30, Buffer::parse_two(TEST_INPUT));
-//}
+#[test]
+fn test_part_two() {
+    assert_eq!(30, Buffer::parse_two(TEST_INPUT));
+}
 
 
 
