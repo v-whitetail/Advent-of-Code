@@ -1,4 +1,3 @@
-use crate::aoc2023::Input;
 use anyhow::{ Result, anyhow, };
 use std::fs::*;
 use std::collections::*;
@@ -23,19 +22,19 @@ pub const DAY_5: &str = file!();
 
 
 
+use crate::aoc2023::Input;
 pub fn part_one(input: Input) -> Result<u32> {
 
     Input::new(file!()).read();
 
-    let input = read_to_string("src/aoc2023/input/day_05.nu")?;
-    let input = TEST_INPUT.to_owned();
+    let input = read_to_string("src/aoc2023/inputs/day_5.nu")?;
 //
 //    let mut map = BTreeSet::<MapItem>::new();
 //    map.insert(MapItem::default());
 //
 //    let seeds = input
 //        .lines()
-//        .filter_map( |line| Line::parse(line).ok() )
+//        .filter_map( |line| Line::parse(line).ok() )https://github.com/v-whitetail/Advent-of-Code
 //        .find_map( |(_, line)| line.as_seeds() )
 //        .expect("seeds parsing");
 //    input
@@ -53,7 +52,8 @@ pub fn part_one(input: Input) -> Result<u32> {
 }
 #[test]
 fn test_part_one() {
-    assert_eq!(35, part_one(Input::new(DAY_5).test()).unwrap());
+    let ans = part_one(Input::new(DAY_5).test());
+    assert_eq!(35, ans.unwrap());
 }
 pub fn part_two() -> Result<()> {
 
@@ -200,41 +200,3 @@ impl<'a> Line<'a> {
            )(s)
     }
 }
-
-
-
-
-const TEST_INPUT: &str = r#"
-seeds: 79 14 55 13
-
-seed-to-soil map:
-50 98 2
-52 50 48
-
-soil-to-fertilizer map:
-0 15 37
-37 52 2
-39 0 15
-
-fertilizer-to-water map:
-49 53 8
-0 11 42
-42 0 7
-57 7 4
-
-water-to-light map:
-88 18 7
-18 25 70
-
-light-to-temperature map:
-45 77 23
-81 45 19
-68 64 13
-
-temperature-to-humidity map:
-0 69 1
-1 0 69
-
-humidity-to-location map:
-60 56 37
-56 93 4"#;
