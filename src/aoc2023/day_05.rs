@@ -59,20 +59,19 @@ pub fn part_two(input: Input) -> Result<i64> {
     let (_, almanac) = Almanac::parse(&input)
         .map_err(|err| anyhow!(err.to_owned()))?;
 
-    let mut seeds = almanac.seeds.clone();
+    let mut seeds = almanac.seeds
+        .values
+        .chunks(2)
+        .map( |bounds| bounds[0] .. bounds[1] )
+        .collect::<Vec<_>>();
 
     for table in almanac.tables {
-        for seed in seeds.values.iter_mut() {
+        for seed in seeds.iter() {
             for (range, offset) in table.function_args.iter() {
-                if range.contains(seed) {
-                    *seed += offset;
-                    break;
-                };
             };
         };
     };
-
-    Ok(seeds.min())
+    Ok(0)
 
 }
 #[test]
