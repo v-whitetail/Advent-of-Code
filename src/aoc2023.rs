@@ -4,7 +4,8 @@
 //pub mod day_04;
 //pub mod day_05;
 //pub mod day_06;
-pub mod day_07;
+//pub mod day_07;
+pub mod day_08;
 
 
 #[derive(Debug, Clone, Copy)]
@@ -58,7 +59,7 @@ impl Input {
                 curl.arg(path);
                 curl.spawn();
                 println!("Saving to: {path:?}");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                std::thread::sleep(std::time::Duration::from_secs(2));
             },
             Self::Test(day) => {
                 println!("Fetching test input for Day {day}");
@@ -72,9 +73,9 @@ impl Input {
                 curl.arg(path);
                 curl.spawn();
                 println!("Saving to: {path:?}");
-                std::thread::sleep(std::time::Duration::from_secs(1));
+                std::thread::sleep(std::time::Duration::from_secs(2));
                 let test = std::fs::read_to_string(path).unwrap();
-                let (_, test) = test.split_once("<p>For example:</p>").unwrap();
+                let (_, test) = test.split_once("For example:</p>").unwrap();
                 let (_, test) = test.trim().split_once("<pre><code>").unwrap();
                 let (test, _) = test.trim().split_once("</code></pre>").unwrap();
                 std::fs::write(path, test);
