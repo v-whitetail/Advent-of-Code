@@ -5,7 +5,8 @@
 //pub mod day_05;
 //pub mod day_06;
 //pub mod day_07;
-pub mod day_08;
+//pub mod day_08;
+pub mod day_09;
 
 
 #[derive(Debug, Clone, Copy)]
@@ -64,6 +65,7 @@ impl Input {
             Self::Test(day) => {
                 println!("Fetching test input for Day {day}");
                 let url = format!("https://adventofcode.com/2023/day/{:?}",day);
+                println!("{url:#?}");
                 let mut curl = std::process::Command::new("curl");
                 curl.arg("-s");
                 curl.arg("-H");
@@ -73,7 +75,7 @@ impl Input {
                 curl.arg(path);
                 curl.spawn();
                 println!("Saving to: {path:?}");
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                std::thread::sleep(std::time::Duration::from_secs(5));
                 let test = std::fs::read_to_string(path).unwrap();
                 let (_, test) = test.split_once("For example:</p>").unwrap();
                 let (_, test) = test.trim().split_once("<pre><code>").unwrap();
