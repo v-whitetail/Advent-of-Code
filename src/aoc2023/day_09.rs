@@ -18,7 +18,6 @@ use crate::aoc2023::Input;
 pub const FILE: &str = file!();
 
 
-
 pub fn part_two(input: Input) -> Result<i32> {
     let input = input.read();
     let (_, file) = parse_file(&input)
@@ -32,6 +31,12 @@ pub fn part_two(input: Input) -> Result<i32> {
 fn test_part_two() {
     let ans = part_two(Input::new(FILE).test()).unwrap();
     assert_eq!(2, ans);
+}
+#[test]
+fn ans_part_two() {
+    let ans = part_one(Input::new(FILE)).unwrap();
+    assert_ne!(1789635132, ans);
+    assert_ne!(913, ans);
 }
 
 
