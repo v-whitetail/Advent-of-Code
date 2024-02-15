@@ -6,7 +6,8 @@
 //pub mod day_06;
 //pub mod day_07;
 //pub mod day_08;
-pub mod day_09;
+//pub mod day_09;
+pub mod day_10;
 
 
 #[derive(Debug, Clone, Copy)]
@@ -75,7 +76,7 @@ impl Input {
                 curl.arg(path);
                 curl.spawn();
                 println!("Saving to: {path:?}");
-                std::thread::sleep(std::time::Duration::from_secs(5));
+                std::thread::sleep(std::time::Duration::from_secs(4));
                 let test = std::fs::read_to_string(path).unwrap();
                 let (_, test) = test.split_once("For example:</p>").unwrap();
                 let (_, test) = test.trim().split_once("<pre><code>").unwrap();
