@@ -1,5 +1,12 @@
 use anyhow::{ Result, anyhow, };
 use std::collections::*;
+use petgraph::{
+    algo::*,
+    prelude::*,
+    graph::Graph,
+    data::FromElements,
+    stable_graph::node_index,
+};
 use itertools::Itertools;
 use nom::{
     IResult,
@@ -36,111 +43,84 @@ pub const FILE: &str = file!();
 
 pub fn part_one(input: Input) -> Result<usize> {
     let input = input.read();
-    let mut map = Map::parse(&input)?;
-    let mut index = map.start();
-    map.path.push(index);
-    while let Some(next_index) = map.walk(index) {
-        index = next_index;
-    };
-    let ans = map.path.len() / 2;
-    Ok(ans)
+    let graph = Map::parse(&input)?;
+    let start = graph.start();
+    let paths = dijkstra(&graph.graph, start, None, |_| 1);
+    let ans = paths.values().max().unwrap();
+    Ok(*ans)
 }
 #[test]
 fn test_part_one() {
     let ans = part_one(Input::new(FILE).test()).unwrap();
     assert_eq!(8, ans);
 }
- #[test]
- fn ans_part_one() {
-     let ans = part_one(Input::new(FILE)).unwrap();
-     assert_eq!(6903, ans);
- }
+#[test]
+fn ans_part_one() {
+    let ans = part_one(Input::new(FILE)).unwrap();
+    assert_eq!(6903, ans);
+}
 
 #[derive(Debug)]
 struct Map {
     rows: usize,
     cols: usize,
-    data: Vec<Tile>,
-    path: Vec<usize>,
+    graph: Graph<Tile, bool, Undirected>,
 }
 impl Map {
-    fn walk (&mut self, i: usize) -> Option<usize> {
-        let is_first_row = |i: &usize| *i <= self.cols;
-        let is_first_col = |i: &usize|  0 == i % self.cols;
-        let is_last_row  = |i: &usize| *i >= self.cols * (self.rows - 1);
-        let is_last_col  = |i: &usize|  0 == (i + 1) % self.cols;
-        let to_north = |i: &usize| *i - self.cols;
-        let to_south = |i: &usize| *i + self.cols;
-        let to_east  = |i: &usize| *i + 1;
-        let to_west  = |i: &usize| *i - 1;
-        let [mut north, mut south, mut east, mut west] = [Tile::None; 4];
-        let tile = &self.data[i];
-        match tile {
-            Tile::NS => {
-                if !is_first_row(&i) { north = self.data[to_north(&i)] };
-                if !is_last_row(&i)  { south = self.data[to_south(&i)] };
-            },
-            Tile::EW => {
-                if !is_first_col(&i) { east  = self.data[to_east(&i)]  };
-                if !is_last_col(&i)  { west  = self.data[to_west(&i)]  };
-            },
-            Tile::NE => {
-                if !is_first_row(&i) { north = self.data[to_north(&i)] };
-                if !is_last_col(&i)  { east  = self.data[to_east(&i)]  };
-            },
-            Tile::NW => {
-                if !is_first_row(&i) { north = self.data[to_north(&i)] };
-                if !is_first_col(&i) { west  = self.data[to_west(&i)]  };
-            },
-            Tile::SW => {
-                if !is_last_row(&i)  { south = self.data[to_south(&i)] };
-                if !is_first_col(&i) { west  = self.data[to_west(&i)]  };
-            },
-            Tile::SE => {
-                if !is_last_row(&i)  { south = self.data[to_south(&i)] };
-                if !is_last_col(&i)  { east  = self.data[to_east(&i)]  };
-            },
-            Tile::Start => {
-                if !is_first_row(&i) { north = self.data[to_north(&i)] };
-                if !is_last_row(&i)  { south = self.data[to_south(&i)] };
-                if !is_last_col(&i)  { east  = self.data[to_east(&i)]  };
-                if !is_first_col(&i) { west  = self.data[to_west(&i)]  };
-            },
-            _ => {},
-        };
-        if north.is_south_joint(tile) && !self.path.contains(&to_north(&i)) {
-            self.path.push(to_north(&i));
-            return Some(to_north(&i));
-        };
-        if tile.is_south_joint(&south) && !self.path.contains(&to_south(&i)) {
-            self.path.push(to_south(&i));
-            return Some(to_south(&i));
-        };
-        if tile.is_east_joint(&east) && !self.path.contains(&to_east(&i)) {
-            self.path.push(to_east(&i));
-            return Some(to_east(&i));
-        };
-        if west.is_east_joint(tile) && !self.path.contains(&to_west(&i)) {
-            self.path.push(to_west(&i));
-            return Some(to_west(&i));
-        };
-        return None
-    }
-    fn start(&self) -> usize {
-        self.data
-            .iter()
-            .position( |tile| *tile == Tile::Start )
-            .expect("\'S\' not present in map")
+    fn start(&self) -> NodeIndex<u32> {
+        self.graph.node_indices()
+            .find(|index| self.graph[*index] == Tile::Start)
+            .expect("start node not found")
     }
     fn parse(s: &str) -> Result<Self> {
         let (_, rows) = Self::parse_rows(s)
             .map_err(|err| err.to_owned())?;
         let (_, cols) = Self::parse_cols(s)
             .map_err(|err| err.to_owned())?;
-        let (_, data) = Self::parse_data(s)
+        let (_, mut graph) = Self::parse_list(s)
             .map_err(|err| err.to_owned())?;
-        let path = Vec::new();
-        Ok( Self{ rows, cols, data, path, } )
+        graph.node_indices()
+            .chunks(cols)
+            .into_iter()
+            .enumerate()
+            .for_each( |(r, indices)| { indices.into_iter().enumerate()
+                .for_each( |(c, index)| {
+                    let north = (0 < r).then(||index.index() - cols);
+                    let south = (r < rows-1).then(||index.index() + cols);
+                    let east  = (c < cols-1).then(||index.index() + 1);
+                    let west  = (0 < c).then(||index.index() - 1);
+                    let tile  = graph[index];
+                    if let Some(north) = north {
+                        let north_index = node_index(north);
+                        let north_tile  = graph[north_index];
+                        if north_tile.is_south_joint(&tile) {
+                            graph.update_edge(north_index, index, true);
+                        };
+                    };
+                    if let Some(south) = south {
+                        let south_index = node_index(south);
+                        let south_tile  = graph[south_index];
+                        if tile.is_south_joint(&south_tile) {
+                            graph.update_edge(index, south_index, true);
+                        };
+                    };
+                    if let Some(west) = west {
+                        let west_index = node_index(west);
+                        let west_tile  = graph[west_index];
+                        if west_tile.is_east_joint(&tile) {
+                            graph.update_edge(west_index, index, true);
+                        };
+                    };
+                    if let Some(east) = east {
+                        let east_index = node_index(east);
+                        let east_tile  = graph[east_index];
+                        if tile.is_east_joint(&east_tile) {
+                            graph.update_edge(index, east_index, true);
+                        };
+                    };
+                });
+            });
+        Ok( Self{ rows, cols, graph, } )
     }
     fn parse_rows(s: &str) -> IResult<&str, usize> {
         many1_count(terminated(Self::parse_cols, line_ending))(s)
@@ -148,21 +128,20 @@ impl Map {
     fn parse_cols(s: &str) -> IResult<&str, usize> {
         many1_count(one_of("|-LJ7F.S"))(s)
     }
-    fn parse_data(s: &str) -> IResult<&str, Vec<Tile>> {
-        many1(terminated(Tile::parse, opt(line_ending)))(s)
+    fn parse_list(s: &str) -> IResult<&str, Graph::<Tile, bool, Undirected>> {
+        fold_many1(
+            terminated(Tile::parse, opt(line_ending)),
+            Graph::<Tile, bool, Undirected>::default,
+            |mut graph, tile| {
+                graph.add_node(tile);
+                graph
+            })(s)
     }
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 enum Tile { NS, EW, NE, NW, SW, SE, #[default] None, Start, }
 impl Tile {
-    fn to_edge(&self, index: &usize, size: [&usize; 2]) -> Option<[usize; 2]>{
-        let is_last_row = |i: &usize, s: &[&usize; 2]| s[1] * (s[0] - 1) <= *i;
-        let is_last_col = |i: &usize, s: &[&usize; 2]| (index + 1) % size[1] == 0;
-        let to_east  = |i: &usize, s: &[&usize; 2]| *index + 1;
-        let to_south = |i: &usize, s: &[&usize; 2]| *index + size[1];
-        todo!();
-    }
     fn is_south_joint(&self, other: &Self) -> bool {
         let from_north = match self {
             Self::NS => true,
