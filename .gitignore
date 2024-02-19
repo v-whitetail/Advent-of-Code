@@ -3,5 +3,12 @@ session.key
 /target
 personal_info.rs
 */personal_info.rs
+**/personal_info.rs
 */inputs/*
 */tests/*
+*/inputs/**
+*/tests/**
+**/inputs/*
+**/tests/*
+**/inputs/**
+**/tests/**

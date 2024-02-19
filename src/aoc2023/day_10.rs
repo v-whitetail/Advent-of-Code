@@ -25,20 +25,20 @@ use crate::aoc2023::Input;
 pub const FILE: &str = file!();
 
 
-// pub fn part_two(input: Input) -> Result<i32> {
-//     let input = input.read();
-//     Ok(0)
-// }
+pub fn part_two(input: Input) -> Result<i32> {
+    let input = input.read();
+    Ok(0)
+}
+#[test]
+fn test_part_two() {
+    let ans = part_two(Input::new(FILE).test()).unwrap();
+    assert_eq!(0, ans);
+}
 // #[test]
-// fn test_part_two() {
-//     let ans = part_two(Input::new(FILE).test()).unwrap();
-//     assert_eq!(0, ans);
-// }
-// #[test]
-// fn ans_part_two() {
-//     let ans = part_one(Input::new(FILE)).unwrap();
-//     assert_eq!(0, ans);
-// }
+fn ans_part_two() {
+    let ans = part_one(Input::new(FILE)).unwrap();
+    assert_eq!(0, ans);
+}
 
 
 pub fn part_one(input: Input) -> Result<usize> {
@@ -46,7 +46,8 @@ pub fn part_one(input: Input) -> Result<usize> {
     let graph = Map::parse(&input)?;
     let start = graph.start();
     let paths = dijkstra(&graph.graph, start, None, |_| 1);
-    let ans = paths.values().max().unwrap();
+    let ans = paths.values().max()
+        .ok_or_else(|| anyhow!("pathfinding error:\n{paths:?}"))?;
     Ok(*ans)
 }
 #[test]
