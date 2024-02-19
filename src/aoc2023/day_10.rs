@@ -25,14 +25,22 @@ use crate::aoc2023::Input;
 pub const FILE: &str = file!();
 
 
-pub fn part_two(input: Input) -> Result<i32> {
+pub fn part_two(input: Input) -> Result<usize> {
     let input = input.read();
-    Ok(0)
+    let mut chart = Map::parse(&input)?;
+    let start = chart.start();
+    let condensed_graph = condensation(chart.graph, true);
+    let longest_path = condensed_graph.raw_nodes()
+        .iter()
+        .max_by( |lhs, rhs| lhs.weight.len().cmp(&rhs.weight.len()) )
+        .ok_or_else(|| anyhow!("pathfinding error:\n{condensed_graph:?}"))?;
+    let ans = 0;
+    Ok(ans)
 }
-#[test]
+ #[test]
 fn test_part_two() {
     let ans = part_two(Input::new(FILE).test()).unwrap();
-    assert_eq!(0, ans);
+    assert_eq!(10, ans);
 }
 // #[test]
 fn ans_part_two() {
@@ -43,12 +51,17 @@ fn ans_part_two() {
 
 pub fn part_one(input: Input) -> Result<usize> {
     let input = input.read();
-    let graph = Map::parse(&input)?;
-    let start = graph.start();
-    let paths = dijkstra(&graph.graph, start, None, |_| 1);
-    let ans = paths.values().max()
-        .ok_or_else(|| anyhow!("pathfinding error:\n{paths:?}"))?;
-    Ok(*ans)
+    let chart = Map::parse(&input)?;
+    let start = chart.start();
+    let condensed_graph = condensation(chart.graph, true);
+    let longest_path = condensed_graph.raw_nodes()
+        .iter()
+        .max_by( |lhs, rhs| lhs.weight.len().cmp(&rhs.weight.len()) )
+        .ok_or_else(|| anyhow!("pathfinding error:\n{condensed_graph:?}"))?
+        .weight
+        .len();
+    let ans = longest_path / 2;
+    Ok(ans)
 }
 #[test]
 fn test_part_one() {
@@ -78,7 +91,7 @@ impl Map {
             .map_err(|err| err.to_owned())?;
         let (_, cols) = Self::parse_cols(s)
             .map_err(|err| err.to_owned())?;
-        let (_, mut graph) = Self::parse_list(s)
+        let (_, mut graph) = Self::parse_graph(s)
             .map_err(|err| err.to_owned())?;
         graph.node_indices()
             .chunks(cols)
@@ -124,12 +137,12 @@ impl Map {
         Ok( Self{ rows, cols, graph, } )
     }
     fn parse_rows(s: &str) -> IResult<&str, usize> {
-        many1_count(terminated(Self::parse_cols, line_ending))(s)
+        many1_count(terminated(not_line_ending, line_ending))(s)
     }
     fn parse_cols(s: &str) -> IResult<&str, usize> {
         many1_count(one_of("|-LJ7F.S"))(s)
     }
-    fn parse_list(s: &str) -> IResult<&str, Graph::<Tile, bool, Undirected>> {
+    fn parse_graph(s: &str) -> IResult<&str, Graph::<Tile, bool, Undirected>> {
         fold_many1(
             terminated(Tile::parse, opt(line_ending)),
             Graph::<Tile, bool, Undirected>::default,
