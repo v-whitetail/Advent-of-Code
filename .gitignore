@@ -1,6 +1,8 @@
 *.key
 session.key
 /target
+*/target
+**/target
 personal_info.rs
 */personal_info.rs
 **/personal_info.rs

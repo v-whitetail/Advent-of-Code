@@ -29,6 +29,15 @@ impl ReportRows {
 
         return count
     }
+
+    fn dampen(&mut self, dampen: u32) {
+
+        for row in self.rows.iter_mut() {
+
+            row.dampen(dampen)
+
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -55,9 +64,10 @@ impl std::str::FromStr for ReportRows {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct ReportRow{
-    levels: Vec<u32>
+    levels: Vec<u32>,
+    dampen: u32,
 }
 
 impl ReportRow {
@@ -77,12 +87,26 @@ impl ReportRow {
             let is_max_rate = self.levels[i-1].abs_diff(self.levels[i]) <= 3;
 
             if !is_in_order || !is_min_rate || !is_max_rate {
-                return false;
+
+                if self.dampen == 0 { return false };
+
+                let mut sub_row = self.clone();
+                sub_row.levels.remove(i-1);
+                sub_row.dampen -= 1;
+
+                return sub_row.is_safe();
+
             }
 
         }
 
         return true;
+    }
+
+    fn dampen(&mut self, dampen: u32) {
+
+        self.dampen = dampen;
+
     }
 }
 
@@ -129,10 +153,21 @@ fn input_part_1() {
 
 #[test]
 fn test_part_2() {
-    assert_eq!(1, 1);
+    let input = "7 6 4 2 1
+1 2 7 8 9
+9 7 6 2 1
+1 3 2 4 5
+8 6 4 4 1
+1 3 6 7 9";
+    let mut report_rows = input.parse::<ReportRows>().unwrap();
+    report_rows.dampen(1);
+    assert_eq!(report_rows.count_safe(), 4);
 }
 
 #[test]
 fn input_part_2() {
-    assert_eq!(1, 1);
+    let input = std::fs::read_to_string("input.txt").unwrap();
+    let mut report_rows = input.parse::<ReportRows>().unwrap();
+    report_rows.dampen(1);
+    assert_ne!(report_rows.count_safe(), 460);
 }
